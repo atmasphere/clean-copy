@@ -22,16 +22,20 @@ async function fetchArchive(originalUrl) {
   for (const mirror of ARCHIVE_MIRRORS) {
     const archiveUrl = `${mirror}/newest/${originalUrl}`;
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
       const resp = await fetch(archiveUrl, {
         redirect: "follow",
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; CleanCopy/1.0)" }
+        signal: controller.signal
       });
+      clearTimeout(timeout);
 
       if (!resp.ok) continue;
 
       const html = await resp.text();
 
-      // Check for CAPTCHA or block page (archive.today sometimes returns these)
+      // Check for CAPTCHA or block page
       if (html.includes("Refresh the page") && html.includes("challenge")) {
         continue;
       }
@@ -41,7 +45,7 @@ async function fetchArchive(originalUrl) {
 
       return { ok: true, html, finalUrl: resp.url };
     } catch (err) {
-      // Try next mirror
+      // Timeout or network error — try next mirror
       continue;
     }
   }
