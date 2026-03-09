@@ -829,11 +829,13 @@ function showArchiveBanner() {
 if (isArchivePage()) {
   function archivePageHasContent() {
     // The save/CAPTCHA page has very little article-like content.
-    // A real snapshot has a substantial <article>, or a large body of <p> tags.
-    const paragraphs = document.querySelectorAll("p");
-    let textLen = 0;
-    paragraphs.forEach(p => { textLen += (p.textContent || "").trim().length; });
-    return textLen > 500;
+    // A real snapshot has substantial text in the body. Check overall
+    // body text length minus scripts/styles, since archived pages may
+    // use divs instead of p tags.
+    const clone = document.body.cloneNode(true);
+    clone.querySelectorAll("script, style, noscript, nav, header, footer").forEach(el => el.remove());
+    const textLen = (clone.textContent || "").replace(/\s+/g, " ").trim().length;
+    return textLen > 800;
   }
 
   function checkAndShowBanner() {
@@ -842,11 +844,20 @@ if (isArchivePage()) {
     }
   }
 
-  // Check on load
+  // Check on load, and retry briefly in case content renders late
+  function checkWithRetry(attempts) {
+    if (document.getElementById("clean-copy-archive-banner")) return;
+    if (archivePageHasContent()) {
+      showArchiveBanner();
+    } else if (attempts > 0) {
+      setTimeout(() => checkWithRetry(attempts - 1), 1000);
+    }
+  }
+
   if (document.readyState === "complete") {
-    checkAndShowBanner();
+    checkWithRetry(5);
   } else {
-    window.addEventListener("load", checkAndShowBanner);
+    window.addEventListener("load", () => checkWithRetry(5));
   }
 
   // Also watch for dynamic content changes (archive.today may render
