@@ -822,14 +822,47 @@ function showArchiveBanner() {
   });
 }
 
-// Auto-detect on page load
+// Auto-detect on archive.today pages.
+// Don't show the banner until the page actually has article content —
+// archive.today shows a CAPTCHA or "saving..." page first, then
+// redirects/renders the actual snapshot.
 if (isArchivePage()) {
-  // Wait for archive.today to finish rendering
-  if (document.readyState === "complete") {
-    showArchiveBanner();
-  } else {
-    window.addEventListener("load", showArchiveBanner);
+  function archivePageHasContent() {
+    // The save/CAPTCHA page has very little article-like content.
+    // A real snapshot has a substantial <article>, or a large body of <p> tags.
+    const paragraphs = document.querySelectorAll("p");
+    let textLen = 0;
+    paragraphs.forEach(p => { textLen += (p.textContent || "").trim().length; });
+    return textLen > 500;
   }
+
+  function checkAndShowBanner() {
+    if (archivePageHasContent()) {
+      showArchiveBanner();
+    }
+  }
+
+  // Check on load
+  if (document.readyState === "complete") {
+    checkAndShowBanner();
+  } else {
+    window.addEventListener("load", checkAndShowBanner);
+  }
+
+  // Also watch for dynamic content changes (archive.today may render
+  // the snapshot after the initial page load via JS)
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById("clean-copy-archive-banner") && archivePageHasContent()) {
+      showArchiveBanner();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body || document.documentElement, {
+    childList: true, subtree: true
+  });
+
+  // Stop observing after 60 seconds to avoid running forever
+  setTimeout(() => observer.disconnect(), 60000);
 }
 
 // ── Message listener ───────────────────────────────────────────
