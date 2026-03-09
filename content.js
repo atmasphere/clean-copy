@@ -27,25 +27,49 @@ function extractArticle() {
 // Strip ads, sponsored content, and non-article elements from the DOM
 // BEFORE Readability processes it (class/ID names still exist here)
 function preCleanDOM(doc) {
-  // Broad class/ID patterns for ads, promos, newsletters, related content
-  const adPattern = /ad[-_]?(slot|unit|wrap|contain|banner|box|break|place|block|hold|region|zone|leader|side|native|inline|interstitial|label)|sponsor|promo(tion)?[-_]?|dfp[-_]|gpt[-_]?ad|google[-_]?ad|taboola|outbrain|newsletter|related[-_]?(article|post|storie|content|reading)|recircul|trending|recommend|paid[-_]?(content|post|partner)|native[-_]?ad|commercial|marketing[-_]?module|cta[-_]?(module|bar|banner)|signup[-_]?(module|bar|form)|subscription|paywall|metering|reg[-_]?wall|piano[-_]|braze|sailthru|resources[-_]?(module|section|widget|sidebar)|content[-_]?marketing/i;
+  // Hard-remove: ad delivery infrastructure. These never contain article text.
+  const hardAdPattern = /ad[-_]?(slot|unit|banner|box|break|place|block|hold|region|zone|leader|native|inline|interstitial|label)|dfp[-_]|gpt[-_]?ad|google[-_]?ad|taboola|outbrain|native[-_]?ad|content[-_]?marketing/i;
+
+  // Soft-remove: patterns that MIGHT wrap article content for logged-in users
+  // (paywall containers, subscription wrappers, newsletter modules).
+  // Only remove these if they contain very little text (< 200 chars).
+  const softPattern = /sponsor|promo(tion)?[-_]?|newsletter|related[-_]?(article|post|storie|content|reading)|recircul|trending|recommend|paid[-_]?(content|post|partner)|commercial|marketing[-_]?module|cta[-_]?(module|bar|banner)|signup[-_]?(module|bar|form)|subscription|paywall|metering|reg[-_]?wall|piano[-_]|braze|sailthru|resources[-_]?(module|section|widget|sidebar)/i;
+
+  const TEXT_THRESHOLD = 200;
 
   doc.querySelectorAll("*").forEach(el => {
     const cls = typeof el.className === "string" ? el.className : "";
     const id = el.id || "";
-    if (adPattern.test(cls + " " + id)) {
+    const classAndId = cls + " " + id;
+
+    if (hardAdPattern.test(classAndId)) {
       el.remove();
+      return;
+    }
+
+    if (softPattern.test(classAndId)) {
+      const textLen = (el.textContent || "").replace(/\s+/g, " ").trim().length;
+      if (textLen < TEXT_THRESHOLD) {
+        el.remove();
+      }
     }
   });
 
   // Remove known non-content elements
   doc.querySelectorAll(
     "iframe, object, embed, form, input, button, select, textarea, " +
-    "aside, nav, [role='complementary'], [role='banner'], [role='navigation'], " +
+    "nav, [role='complementary'], [role='banner'], [role='navigation'], " +
     "[aria-label*='advertisement' i], [aria-label*='sponsor' i], " +
     "[data-ad], [data-testid*='ad' i], [data-testid*='sponsor' i], " +
     "script, style, noscript, svg, [hidden]"
   ).forEach(el => el.remove());
+
+  // Remove <aside> elements only if they're small (pull quotes are fine,
+  // but some sites use <aside> for large sidebar content)
+  doc.querySelectorAll("aside").forEach(el => {
+    const textLen = (el.textContent || "").replace(/\s+/g, " ").trim().length;
+    if (textLen < TEXT_THRESHOLD) el.remove();
+  });
 
   // Remove elements whose text is just ad labels
   doc.querySelectorAll("div, section, span, p, a").forEach(el => {
