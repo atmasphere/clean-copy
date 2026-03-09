@@ -6,11 +6,12 @@ Chrome's built-in Reading Mode renders clean text but blocks copy/paste. Clean C
 
 ## Features
 
-- **Reading panel** — slides in from the right side of the page with clean article text
+- **Reading panel** — slides in from the right side of the page with clean article text, resizable by dragging the left edge
 - **Copy as Markdown** — one click or `Cmd+Shift+C` / `Ctrl+Shift+C`
 - **Copy as plain text or HTML** — via the toolbar popup
-- **Theme toggle** — light, dark, and sepia modes
-- **Font controls** — sans-serif, serif, or monospace; adjustable size
+- **Paywall fallback** — detects truncated/paywalled articles and offers to fetch the full text from archive.today
+- **Theme toggle** — light, dark, and sepia modes (sun/moon icons)
+- **Font controls** — sans-serif (default), serif, or monospace; adjustable size
 - **Ad stripping** — pre-cleans the DOM before extraction, post-cleans the output, and uses CSS safety nets to collapse anything that slips through
 
 ## How it works
@@ -37,7 +38,17 @@ Chrome's built-in Reading Mode renders clean text but blocks copy/paste. Clean C
 | Copy as plain text | Click extension icon → **Copy as Plain Text** |
 | Copy as clean HTML | Click extension icon → **Copy as Clean HTML** |
 | Toggle theme | Click the sun/moon icon in the panel toolbar |
+| Resize panel | Drag the left edge of the panel |
+| Paywall fallback | Click **Try archive.today** when prompted |
 | Close panel | Click `×` or press `Cmd+Shift+R` again |
+
+## Paywall fallback
+
+When Clean Copy detects a truncated article (short extracted text or paywall indicators in the page), it shows a **Try archive.today** button. Clicking it fetches the most recent cached snapshot from [archive.today](https://archive.today) and extracts the full article from that.
+
+This is a user-initiated action — the extension never contacts archive.today unless you click the button. If no archived version exists, you'll get a link to save the page there manually.
+
+**Note:** This feature retrieves publicly cached copies of web pages for personal reading. It is not intended to systematically circumvent paywalls. If you value a publication's work, consider subscribing.
 
 ## Libraries
 

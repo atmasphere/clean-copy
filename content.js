@@ -182,6 +182,54 @@ function postCleanHTML(html) {
   return container.innerHTML;
 }
 
+// ── Paywall detection ──────────────────────────────────────────
+
+function looksPaywalled(article) {
+  // Heuristic 1: very short extracted body (< 500 chars of visible text)
+  const temp = document.createElement("div");
+  temp.innerHTML = article.html;
+  const textLen = (temp.textContent || "").replace(/\s+/g, " ").trim().length;
+  if (textLen < 500) return true;
+
+  // Heuristic 2: page DOM has paywall indicators
+  const body = document.body;
+  if (!body) return false;
+  const haystack = body.innerHTML.toLowerCase();
+  const indicators = [
+    "paywall", "subscriber-only", "premium-content", "subscription-required",
+    "piano-offer", "gate-content", "metered-content", "registration-wall",
+    "subscribe to read", "subscribe to continue", "sign in to read",
+    "this article is for subscribers", "free articles remaining",
+    "create a free account", "already a subscriber"
+  ];
+  return indicators.some(term => haystack.includes(term));
+}
+
+// Parse archived HTML (from archive.today) through Readability
+function extractFromArchiveHTML(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  // archive.today sometimes wraps content in an iframe or special div
+  // Remove archive.today's own toolbar/header
+  doc.querySelectorAll("#HEADER, .HEADER, #wm-ipp-base, #wm-ipp, #donato, #archiveorg").forEach(el => el.remove());
+
+  preCleanDOM(doc);
+
+  const reader = new Readability(doc);
+  const article = reader.parse();
+  if (!article) return null;
+
+  return {
+    title: article.title,
+    byline: article.byline,
+    siteName: article.siteName,
+    html: postCleanHTML(article.content),
+    excerpt: article.excerpt,
+    url: window.location.href
+  };
+}
+
 // ── Format converters ──────────────────────────────────────────
 
 function articleToMarkdown(article) {
@@ -393,6 +441,40 @@ function getOrCreatePanel() {
       }
       .toast.show { opacity: 1; }
 
+      /* Archive fallback prompt */
+      .archive-prompt {
+        margin: 20px 0;
+        padding: 16px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        font-size: 0.85em;
+        color: var(--text2);
+        line-height: 1.5;
+      }
+      .archive-prompt p { margin-bottom: 10px; }
+      .archive-btn {
+        display: inline-block;
+        padding: 8px 16px;
+        background: var(--link);
+        color: var(--bg);
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-family: system-ui, sans-serif;
+        cursor: pointer;
+        transition: opacity .15s;
+      }
+      .archive-btn:hover { opacity: 0.85; }
+      .archive-btn:disabled { opacity: 0.5; cursor: default; }
+      .archive-note {
+        margin-top: 8px;
+        font-size: 0.8em;
+        color: var(--text2);
+        opacity: 0.7;
+      }
+
       /* Resize handle */
       .resize-handle {
         position: absolute;
@@ -554,10 +636,68 @@ function showReadingPanel() {
   if (article.siteName) metaParts.push(article.siteName);
   metaParts.push(`<a href="${article.url}" target="_blank">${new URL(article.url).hostname}</a>`);
 
+  const isPaywalled = looksPaywalled(article);
+
   const existingClasses = contentEl.className;
   contentEl.innerHTML = `
     <h1 class="title">${article.title}</h1>
     <div class="meta">${metaParts.join(" \u00B7 ")}</div>
+    ${isPaywalled ? `
+      <div class="archive-prompt">
+        <p>This article looks truncated — it may be behind a paywall.</p>
+        <button class="archive-btn">Try archive.today</button>
+        <div class="archive-note">Fetches a cached version if one exists</div>
+      </div>
+    ` : ""}
+    <div class="body">${article.html}</div>
+  `;
+  contentEl.className = existingClasses;
+  contentEl.scrollTop = 0;
+
+  // Wire up archive button if present
+  const archiveBtn = contentEl.querySelector(".archive-btn");
+  if (archiveBtn) {
+    archiveBtn.addEventListener("click", () => {
+      archiveBtn.disabled = true;
+      archiveBtn.textContent = "Fetching...";
+      loadFromArchive(panel, contentEl, metaParts);
+    });
+  }
+}
+
+async function loadFromArchive(panel, contentEl, metaParts) {
+  const url = window.location.href;
+
+  const result = await chrome.runtime.sendMessage({
+    action: "fetch-archive",
+    url: url
+  });
+
+  if (!result.ok) {
+    const prompt = contentEl.querySelector(".archive-prompt");
+    if (prompt) {
+      prompt.innerHTML = `<p>${result.error}</p><div class="archive-note">You can try <a href="https://archive.today/?url=${encodeURIComponent(url)}" target="_blank" style="color:var(--link)">saving it manually</a></div>`;
+    }
+    return;
+  }
+
+  // Parse the archived page through Readability
+  const article = extractFromArchiveHTML(result.html);
+  if (!article) {
+    const prompt = contentEl.querySelector(".archive-prompt");
+    if (prompt) {
+      prompt.innerHTML = `<p>Found an archived version but couldn't extract the article.</p><div class="archive-note"><a href="${result.finalUrl}" target="_blank" style="color:var(--link)">Open in archive.today</a></div>`;
+    }
+    return;
+  }
+
+  // Update panel with full article
+  panel._articleData = article;
+
+  const existingClasses = contentEl.className;
+  contentEl.innerHTML = `
+    <h1 class="title">${article.title}</h1>
+    <div class="meta">${metaParts.join(" \u00B7 ")} · <span style="color:var(--link)">via archive.today</span></div>
     <div class="body">${article.html}</div>
   `;
   contentEl.className = existingClasses;

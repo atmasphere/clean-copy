@@ -1,5 +1,55 @@
 // Clean Copy — background service worker
-// Handles keyboard shortcut commands
+// Handles keyboard shortcuts and archive.today fetches
+
+// ── Archive fetch ──────────────────────────────────────────────
+// Content scripts can't do cross-origin fetches, so we proxy here.
+// archive.today uses several mirror domains; try them in order.
+
+const ARCHIVE_MIRRORS = [
+  "https://archive.today",
+  "https://archive.ph",
+  "https://archive.is"
+];
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "fetch-archive") {
+    fetchArchive(request.url).then(sendResponse);
+    return true; // keep channel open for async
+  }
+});
+
+async function fetchArchive(originalUrl) {
+  for (const mirror of ARCHIVE_MIRRORS) {
+    const archiveUrl = `${mirror}/newest/${originalUrl}`;
+    try {
+      const resp = await fetch(archiveUrl, {
+        redirect: "follow",
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; CleanCopy/1.0)" }
+      });
+
+      if (!resp.ok) continue;
+
+      const html = await resp.text();
+
+      // Check for CAPTCHA or block page (archive.today sometimes returns these)
+      if (html.includes("Refresh the page") && html.includes("challenge")) {
+        continue;
+      }
+
+      // archive.today wraps the original page — check we got real content
+      if (html.length < 1000) continue;
+
+      return { ok: true, html, finalUrl: resp.url };
+    } catch (err) {
+      // Try next mirror
+      continue;
+    }
+  }
+
+  return { ok: false, error: "No archived version found. The page may not have been saved to archive.today yet." };
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === "toggle-reader") {

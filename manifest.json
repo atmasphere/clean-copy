@@ -4,6 +4,15 @@
   "version": "1.0.0",
   "description": "Extract clean article text and copy as Markdown or plain text",
   "permissions": ["activeTab", "scripting"],
+  "host_permissions": [
+    "*://archive.today/*",
+    "*://archive.ph/*",
+    "*://archive.is/*",
+    "*://archive.li/*",
+    "*://archive.vn/*",
+    "*://archive.fo/*",
+    "*://archive.md/*"
+  ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
