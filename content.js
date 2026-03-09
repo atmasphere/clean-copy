@@ -221,7 +221,9 @@ function articleToPlainText(article) {
 // ── Reading Panel ──────────────────────────────────────────────
 
 const PANEL_ID = "clean-copy-reader-panel";
-const PANEL_WIDTH = "420px";
+const PANEL_DEFAULT_WIDTH = 420;
+const PANEL_MIN_WIDTH = 280;
+const PANEL_MAX_WIDTH = 900;
 
 function getOrCreatePanel() {
   let panel = document.getElementById(PANEL_ID);
@@ -238,13 +240,14 @@ function getOrCreatePanel() {
         position: fixed;
         top: 0;
         right: 0;
-        width: ${PANEL_WIDTH};
+        width: ${PANEL_DEFAULT_WIDTH}px;
         height: 100vh;
         z-index: 2147483647;
         font-family: system-ui, -apple-system, "Segoe UI", Helvetica, sans-serif;
         transition: transform .25s ease;
       }
       :host(.hidden) { transform: translateX(100%); }
+      :host(.resizing) { transition: none; }
 
       * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -389,8 +392,26 @@ function getOrCreatePanel() {
         pointer-events: none;
       }
       .toast.show { opacity: 1; }
+
+      /* Resize handle */
+      .resize-handle {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 6px;
+        height: 100%;
+        cursor: col-resize;
+        z-index: 10;
+        background: transparent;
+        transition: background .15s;
+      }
+      .resize-handle:hover, .resize-handle.active {
+        background: var(--link);
+        opacity: 0.4;
+      }
     </style>
 
+    <div class="resize-handle"></div>
     <div class="panel">
       <div class="toolbar">
         <button class="theme-btn" title="Light theme">\u263C</button>
@@ -478,6 +499,35 @@ function getOrCreatePanel() {
     document.documentElement.style.marginRight = "";
   });
 
+  // Resize handle
+  const resizeHandle = root.querySelector(".resize-handle");
+  let isResizing = false;
+
+  resizeHandle.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    isResizing = true;
+    panel.classList.add("resizing");
+    resizeHandle.classList.add("active");
+
+    const onMouseMove = (e) => {
+      if (!isResizing) return;
+      const newWidth = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, window.innerWidth - e.clientX));
+      panel.style.width = newWidth + "px";
+      document.documentElement.style.marginRight = newWidth + "px";
+    };
+
+    const onMouseUp = () => {
+      isResizing = false;
+      panel.classList.remove("resizing");
+      resizeHandle.classList.remove("active");
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
+
   return panel;
 }
 
@@ -487,7 +537,9 @@ function showReadingPanel() {
   const contentEl = shadow.querySelector(".content");
 
   panel.classList.remove("hidden");
-  document.documentElement.style.marginRight = PANEL_WIDTH;
+  // Use current width if previously resized, otherwise default
+  const currentWidth = panel.style.width || (PANEL_DEFAULT_WIDTH + "px");
+  document.documentElement.style.marginRight = currentWidth;
 
   const article = extractArticle();
   if (!article) {
