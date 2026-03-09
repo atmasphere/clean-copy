@@ -29,14 +29,14 @@
     "toggle-reader": {
       "suggested_key": {
         "default": "Alt+Shift+R",
-        "mac": "MacCtrl+Alt+R"
+        "mac": "Alt+Shift+R"
       },
       "description": "Toggle reading panel"
     },
     "copy-markdown": {
       "suggested_key": {
         "default": "Alt+Shift+C",
-        "mac": "MacCtrl+Alt+C"
+        "mac": "Alt+Shift+C"
       },
       "description": "Copy article as Markdown"
     }
