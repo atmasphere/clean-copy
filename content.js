@@ -7,6 +7,11 @@
 function extractArticle() {
   const clone = document.cloneNode(true);
 
+  // If on archive.today, strip their toolbar/header first
+  if (isArchivePage()) {
+    clone.querySelectorAll("#HEADER, .HEADER, #wm-ipp-base, #wm-ipp, #donato, #__top, [id*='archive']").forEach(el => el.remove());
+  }
+
   // Pre-clean the DOM while class/ID names are still intact
   preCleanDOM(clone);
 
@@ -735,6 +740,95 @@ function toggleReadingPanel() {
     document.documentElement.style.marginRight = "";
   } else {
     showReadingPanel();
+  }
+}
+
+// ── Message listener ───────────────────────────────────────────
+
+// ── Archive.today auto-detect ──────────────────────────────────
+// When the user lands on an archive.today page (after saving or browsing),
+// show a slim banner offering to read the article clean.
+
+const ARCHIVE_DOMAINS = ["archive.today", "archive.ph", "archive.is", "archive.li", "archive.vn", "archive.fo", "archive.md"];
+
+function isArchivePage() {
+  return ARCHIVE_DOMAINS.some(d => window.location.hostname === d || window.location.hostname.endsWith("." + d));
+}
+
+function showArchiveBanner() {
+  const BANNER_ID = "clean-copy-archive-banner";
+  if (document.getElementById(BANNER_ID)) return;
+
+  const banner = document.createElement("div");
+  banner.id = BANNER_ID;
+
+  const shadow = banner.attachShadow({ mode: "open" });
+  shadow.innerHTML = `
+    <style>
+      :host {
+        all: initial;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2147483647;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 10px 16px;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        font-size: 13px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.3);
+        animation: slideDown .25s ease;
+      }
+      @keyframes slideDown {
+        from { transform: translateY(-100%); }
+        to { transform: translateY(0); }
+      }
+      .banner button {
+        padding: 5px 14px;
+        border: none;
+        border-radius: 5px;
+        font-size: 12px;
+        font-family: system-ui, sans-serif;
+        cursor: pointer;
+        transition: opacity .15s;
+      }
+      .banner button:hover { opacity: 0.85; }
+      .read-btn { background: #6fb3d2; color: #1a1a2e; font-weight: 600; }
+      .dismiss-btn { background: transparent; color: #999; border: 1px solid #444 !important; }
+    </style>
+    <div class="banner">
+      <span>Archived article detected</span>
+      <button class="read-btn">Read Clean</button>
+      <button class="dismiss-btn">Dismiss</button>
+    </div>
+  `;
+
+  document.documentElement.appendChild(banner);
+
+  shadow.querySelector(".read-btn").addEventListener("click", () => {
+    banner.remove();
+    showReadingPanel();
+  });
+
+  shadow.querySelector(".dismiss-btn").addEventListener("click", () => {
+    banner.remove();
+  });
+}
+
+// Auto-detect on page load
+if (isArchivePage()) {
+  // Wait for archive.today to finish rendering
+  if (document.readyState === "complete") {
+    showArchiveBanner();
+  } else {
+    window.addEventListener("load", showArchiveBanner);
   }
 }
 
