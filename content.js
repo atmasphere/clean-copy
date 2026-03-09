@@ -705,7 +705,14 @@ async function loadFromArchive(panel, contentEl, metaParts) {
   if (!result.ok) {
     const prompt = contentEl.querySelector(".archive-prompt");
     if (prompt) {
-      prompt.innerHTML = `<p>${result.error}</p><div class="archive-note">You can try <a href="https://archive.today/?url=${encodeURIComponent(url)}" target="_blank" style="color:var(--link)">saving it manually</a></div>`;
+      prompt.innerHTML = `
+        <p>Couldn't fetch automatically — archive.today may be blocking the request.</p>
+        <div style="display:flex; gap:8px; justify-content:center; margin-top:10px;">
+          <a href="https://archive.today/newest/${encodeURIComponent(url)}" target="_blank" class="archive-btn" style="text-decoration:none; color:var(--bg);">Open in archive.today</a>
+          <a href="https://archive.today/?url=${encodeURIComponent(url)}" target="_blank" class="archive-btn" style="text-decoration:none; color:var(--bg); opacity:0.7;">Save new copy</a>
+        </div>
+        <div class="archive-note">If a cached version exists, open it in your browser — Clean Copy will detect it there</div>
+      `;
     }
     return;
   }
@@ -828,12 +835,28 @@ function showArchiveBanner() {
 // redirects/renders the actual snapshot.
 if (isArchivePage()) {
   function archivePageHasContent() {
-    // The save/CAPTCHA page has very little article-like content.
-    // A real snapshot has substantial text in the body. Check overall
-    // body text length minus scripts/styles, since archived pages may
-    // use divs instead of p tags.
+    // Exclude archive.today's own UI pages: save form, CAPTCHA,
+    // "already archived" confirmation, error pages.
+    const bodyText = document.body.textContent || "";
+    const isArchiveUI =
+      document.querySelector("form[action*='submit']") ||
+      document.querySelector("#HEADER input[type='url']") ||
+      document.querySelector("input[name='url']") ||
+      /my url is alive and target_url/i.test(bodyText) ||
+      /already archived|saving page|submitting|enter the URL/i.test(bodyText);
+
+    if (isArchiveUI) return false;
+
+    // A real snapshot URL is like archive.ph/XXXXX (short alphanumeric path).
+    // The save/submit pages use paths like /submit/, /?url=, /newest/.
+    const path = window.location.pathname;
+    if (/^\/(submit|newest|search|faq|about|login)/i.test(path) || path === "/") {
+      return false;
+    }
+
+    // Check that the page has substantial article text
     const clone = document.body.cloneNode(true);
-    clone.querySelectorAll("script, style, noscript, nav, header, footer").forEach(el => el.remove());
+    clone.querySelectorAll("script, style, noscript, nav, header, footer, form, #HEADER, .HEADER").forEach(el => el.remove());
     const textLen = (clone.textContent || "").replace(/\s+/g, " ").trim().length;
     return textLen > 800;
   }
