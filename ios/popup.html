@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 20px;
+      min-width: 280px;
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: #16213e;
+      color: #e0e0e0;
+      font-size: 16px;
+      cursor: pointer;
+      text-align: center;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-appearance: none;
+      touch-action: manipulation;
+    }
+    .btn:active { background: #1a5276; transform: scale(0.98); }
+    .btn.primary {
+      background: #0f3460;
+      border-color: rgba(255,255,255,.18);
+      font-weight: 600;
+      font-size: 17px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .btn.primary:active { background: #1a5276; }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .btn-row .btn {
+      flex: 1;
+      font-size: 14px;
+      padding: 12px 8px;
+      margin-bottom: 0;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #888;
+      min-height: 18px;
+      text-align: center;
+    }
+    .status.success { color: #4caf50; }
+    .status.error { color: #ef5350; }
+  </style>
+</head>
+<body>
+  <h1>Clean Copy</h1>
+  <button class="btn primary" id="read-clean">Read Clean</button>
+  <button class="btn" id="copy-md">Copy as Markdown</button>
+  <div class="btn-row">
+    <button class="btn" id="copy-text">Plain Text</button>
+    <button class="btn" id="copy-html">Clean HTML</button>
+  </div>
+  <div class="status" id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
